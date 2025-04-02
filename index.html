@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI环境管理工具</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI环境管理工具</h1>
+            <div class="status-bar">
+                <div class="system-info">
+                    <span id="python-version">加载中...</span>
+                    <span id="pip-version">加载中...</span>
+                </div>
+                <div class="author-links">
+                    <a href="https://space.bilibili.com/23038079" class="author-btn" title="作者B站主页" target="_blank">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774l-1.174-1.12a1.234 1.234 0 0 1-.373-.906c0-.356.124-.658.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.134.142.187.213h4.267a.836.836 0 0 1 .16-.213l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906L17.813 4.653zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893v-7.52c-.017-.765-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773H5.333zM8 11.107c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373zm4 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373zm4 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373z"/>
+                        </svg>
+                    </a>
+                    <a href="https://github.com/1761696257" class="author-btn" title="作者GitHub主页" target="_blank">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                        </svg>
+                    </a>
+                    <button id="settings-btn" class="settings-btn" title="设置">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22-.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 添加搜索框 -->
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <input type="text" id="dependency-search" placeholder="搜索依赖名称..." autocomplete="off">
+                <button id="clear-search" class="clear-search-btn" title="清空搜索">×</button>
+            </div>
+        </div>
+        
+        <main>
+            
+            <div class="dependency-container">
+                <div class="batch-actions">
+                    <div class="select-all-container">
+                        <input type="checkbox" id="select-all">
+                        <label for="select-all">全选</label>
+                    </div>
+                    <div class="batch-buttons">
+                        <div class="filter-container">
+                            <select id="dependency-filter">
+                                <option value="all">全部依赖</option>
+                                <option value="system">核心依赖</option>
+                                <option value="app">软件依赖</option>
+                                <option value="core">数据科学</option>
+                                <option value="ai">人工智能</option>
+                                <option value="other">其他依赖</option>
+                            </select>
+                        </div>
+                        <button id="clean-cache-btn" class="batch-btn">清理PIP缓存</button>
+                        <button id="batch-uninstall-btn" class="batch-btn" disabled>批量卸载</button>
+                        <button id="update-selected-btn" class="batch-btn" disabled>一键更新所选依赖</button>
+                    </div>
+                </div>
+                
+                <div class="dependency-header">
+                    <span class="col-checkbox"></span>
+                    <span class="col-name">依赖名称</span>
+                    <span class="col-version">版本</span>
+                    <span class="col-description">描述</span>
+                    <span class="col-actions">操作</span>
+                </div>
+                <div id="dependency-list" class="dependency-list">
+                    <div class="loading">加载依赖列表中...</div>
+                </div>
+            </div>
+            
+            <!-- 整个安装容器已移除 -->
+        </main>
+        
+        <!-- 添加包安装区域 -->
+        <div class="package-install-container">
+            <h2>包安装</h2>
+            <div class="package-install-form">
+                <div class="package-input-group">
+                    <input type="text" id="package-input" placeholder="请输入包名称和版本（例如：onnxruntime>=1.17）或选择 .whl / requirements.txt 文件进行安装">
+                    <input type="file" id="package-file" accept=".whl,.txt" hidden>
+                    <button id="select-file-btn" class="file-select-btn">选择 .whl 或 requirements.txt 文件</button>
+                    <button id="install-btn" class="install-btn">安装</button>
+                </div>
+                <div id="file-info" class="file-info"></div>
+            </div>
+        </div>
+        
+        <div id="notification" class="notification hidden"></div>
+        
+        <div id="progress-container" class="progress-container hidden">
+            <div class="progress-title">正在处理...</div>
+            <div class="progress-bar-container">
+                <div id="progress-bar" class="progress-bar"></div>
+            </div>
+            <div id="progress-text" class="progress-text">0%</div>
+        </div>
+        
+        <div id="version-modal" class="modal">
+            <div class="modal-content version-modal-content">
+                <span class="close-btn">&times;</span>
+                <h2>管理版本: <span id="package-name"></span></h2>
+                <p>当前版本: <span id="current-version"></span></p>
+                
+                <div class="version-tabs">
+                    <button class="version-tab-btn active" data-tab="history">版本历史</button>
+                    <button class="version-tab-btn" data-tab="manual">手动指定版本</button>
+                </div>
+                
+                <div id="history-tab" class="version-tab-content">
+                    <div class="version-list-header">
+                        <span class="version-name">版本号</span>
+                        <span class="version-date">发布日期</span>
+                        <span class="version-action">操作</span>
+                    </div>
+                    <div id="version-list" class="version-list">
+                        <div class="version-loading">加载版本历史中...</div>
+                    </div>
+                </div>
+                
+                <div id="manual-tab" class="version-tab-content" style="display:none;">
+                    <div class="version-input">
+                        <input type="text" id="version-input" placeholder="输入版本号，例如: 1.21.0">
+                        <button id="switch-version-btn">切换到此版本</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 设置模态框 -->
+        <div id="settings-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn">&times;</span>
+                <h2>设置</h2>
+                
+                <div class="settings-form">
+                    <div class="settings-section">
+                        <!-- 移除了缓存天数设置项，只保留主题选择 -->
+                        <div class="settings-item">
+                            <label for="theme-select">主题</label>
+                            <select id="theme-select">
+                                <option value="light">明亮</option>
+                                <option value="dark">暗黑</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-actions">
+                        <button id="save-settings-btn">保存设置</button>
+                        <button id="reset-settings-btn" class="secondary-btn">恢复默认</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量更新确认对话框 -->
+        <div id="update-confirm-modal" class="modal">
+            <div class="modal-content update-confirm-content">
+                <span class="close-btn">&times;</span>
+                <h2>更新确认</h2>
+                <div class="update-confirm-info">
+                    <p>您选择了 <span id="total-packages-count">0</span> 个依赖，其中 <span id="update-packages-count">0</span> 个需要更新，<span id="latest-packages-count">0</span> 个已是最新版本。</p>
+                </div>
+                
+                <div class="update-packages-container">
+                    <h3>需要更新的依赖</h3>
+                    <div id="update-packages-list" class="packages-list">
+                        <div class="no-packages">没有需要更新的依赖</div>
+                    </div>
+                </div>
+                
+                <div class="latest-packages-container">
+                    <h3>已是最新版本的依赖</h3>
+                    <div id="latest-packages-list" class="packages-list">
+                        <div class="no-packages">没有最新版本的依赖</div>
+                    </div>
+                </div>
+                
+                <div class="update-confirm-actions">
+                    <button id="update-confirm-cancel" class="secondary-btn">取消</button>
+                    <button id="update-confirm-proceed">继续更新</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 依赖关系图模态框 -->
+        <div id="dependency-graph-modal" class="modal">
+            <div class="modal-content dependency-graph-modal-content">
+                <span class="close-btn">&times;</span>
+                <h2>依赖关系图: <span id="graph-package-name"></span></h2>
+                
+                <div class="graph-container">
+                    <div id="dependency-graph" class="dependency-graph"></div>
+                    <div id="graph-loading" class="graph-loading">加载依赖关系图中...</div>
+                    <div id="graph-error" class="graph-error" style="display:none;">无法加载依赖关系图</div>
+                </div>
+                
+                <div class="graph-legend">
+                    <div class="legend-item">
+                        <span class="legend-color main-package"></span>
+                        <span class="legend-label">主包</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color direct-dependency"></span>
+                        <span class="legend-label">直接依赖</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color optional-dependency"></span>
+                        <span class="legend-label">可选依赖</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>© 2025 AI环境管理工具 v1.0.0</p>
+        </footer>
+    </div>
+    
+    <script src="js/main.js" type="module"></script>
+</body>
+</html>

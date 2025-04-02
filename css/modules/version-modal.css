@@ -1,0 +1,217 @@
+/* 版本切换模态框样式 */
+
+.version-modal-content {
+    width: 550px;
+    max-width: 95%;
+}
+
+/* 标签页导航 */
+.version-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin: var(--space-lg) 0;
+}
+
+.version-tab-btn {
+    background: transparent;
+    color: var(--text-color);
+    border: none;
+    padding: var(--space-sm) var(--space-md);
+    margin-right: var(--space-md);
+    position: relative;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.version-tab-btn:hover {
+    color: var(--primary-color);
+    background: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
+.version-tab-btn.active {
+    color: var(--primary-color);
+}
+
+.version-tab-btn.active::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--primary-color);
+    border-radius: 2px 2px 0 0;
+}
+
+/* 标签内容 */
+.version-tab-content {
+    display: none;
+    margin-top: var(--space-md);
+}
+
+/* 版本列表头部 */
+.version-list-header {
+    display: flex;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--neutral-100);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    border: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+/* 版本列表样式 */
+.version-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.version-item {
+    display: flex;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--border-color);
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.version-item:last-child {
+    border-bottom: none;
+}
+
+.version-item:hover {
+    background-color: var(--neutral-50);
+}
+
+.version-name {
+    flex: 1;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.version-date {
+    width: 100px;
+    color: var(--secondary-text);
+    font-size: 0.875rem;
+}
+
+.version-action {
+    width: 120px;
+    text-align: right;
+}
+
+/* 版本徽章 */
+.version-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.version-badge.current {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.version-badge.latest {
+    background-color: var(--success-color);
+    color: white;
+}
+
+/* 特殊版本项样式 */
+.version-item.current {
+    background-color: rgba(33, 150, 243, 0.1);
+}
+
+.version-item.latest {
+    background-color: rgba(0, 184, 148, 0.08);
+}
+
+/* 版本使用按钮 */
+.version-use-btn {
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.version-use-btn:disabled {
+    background-color: var(--neutral-400);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.version-use-btn:not(:disabled):hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+/* 手动切换版本输入 */
+.version-input {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+}
+
+.version-input input {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.version-input input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--primary-100);
+}
+
+/* 加载和错误状态 */
+.version-loading, .version-error {
+    padding: var(--space-lg);
+    text-align: center;
+    color: var(--secondary-text);
+}
+
+.version-error {
+    color: var(--error-color);
+}
+
+/* 暗黑主题适配 */
+body[data-theme="dark"] .version-tab-btn {
+    color: var(--text-color);
+}
+
+body[data-theme="dark"] .version-tab-btn:hover,
+body[data-theme="dark"] .version-tab-btn.active {
+    color: var(--primary-color);
+}
+
+body[data-theme="dark"] .version-list-header {
+    background-color: var(--neutral-100);
+}
+
+body[data-theme="dark"] .version-item:hover {
+    background-color: var(--neutral-100);
+}
+
+body[data-theme="dark"] .version-item.current {
+    background-color: rgba(66, 133, 244, 0.15);
+}
+
+body[data-theme="dark"] .version-item.latest {
+    background-color: rgba(0, 184, 148, 0.15);
+}
