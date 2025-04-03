@@ -1,5 +1,5 @@
 # AI环境管理工具
-
+https://github.com/user-attachments/assets/87a2be3f-c9d3-46be-9526-ace0223d7330
 一个简洁高效的 Python AI 开发环境管理工具，提供可视化界面进行 Python 依赖包的管理和维护。
 
 ## 特色功能
