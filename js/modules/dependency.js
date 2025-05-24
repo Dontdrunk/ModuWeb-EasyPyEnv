@@ -39,8 +39,34 @@ export const dependencyHandler = {
             const result = await switchVersion(packageName, version);
             
             if (result.success && result.taskId) {
-                monitorTaskProgress(result.taskId, getTaskProgress, async () => {
-                    await refreshDependencies();
+                monitorTaskProgress(result.taskId, getTaskProgress, async (progress) => {
+                    if (progress.status === 'completed') {
+                        hideProgressBar();
+                        // 任务完成后精确更新单个依赖，而非刷新整个列表
+                        try {
+                            // 导入从core.js而非ui.js，避免循环依赖问题
+                            const { refreshSingleDependency } = await import('./core.js');
+                            // 强制刷新以确保获取最新版本信息
+                            const updatedDep = await refreshSingleDependency(packageName, true);
+                            
+                            if (updatedDep) {
+                                showNotification(`已成功将 ${packageName} 切换到版本 ${version}`, 'success');
+                                console.log(`依赖 ${packageName} 版本已更新为 ${updatedDep.version}`);
+                            } else {
+                                // 如果精确更新失败，则回退到完全刷新
+                                console.warn(`无法精确更新依赖 ${packageName}，将刷新整个列表`);
+                                await refreshDependencies(false);
+                            }
+                        } catch (error) {
+                            console.error('更新依赖版本失败:', error);
+                            showNotification(`版本切换成功，但界面更新失败：${error.message}`, 'warning');
+                            // 尝试回退到完全刷新
+                            await refreshDependencies(false);
+                        }
+                    } else if (progress.status === 'error') {
+                        hideProgressBar();
+                        showNotification(`切换版本失败: ${progress.message || '未知错误'}`, 'error');
+                    }
                 });
             } else {
                 hideProgressBar();
@@ -67,28 +93,27 @@ export const dependencyHandler = {
                         if (confirm(`确定要卸载 ${packageName} 吗？`)) {
                             // 显示进度条
                             showProgressBar(`正在卸载 ${packageName}...`);
-                            
-                            // 立即从UI中移除该依赖项，防止重复操作
-                            dependencyItem.style.display = 'none';
+                              // 使用淡出效果表示正在卸载
+                            dependencyItem.classList.add('fading-out');
                             
                             const result = await uninstallDependency(packageName);
                             
                             if (result.success) {
                                 showNotification(result.message, 'success');
                                 
-                                // 修复：强制完全刷新界面，确保移除已卸载的依赖
+                                // 使用增量刷新，直接从UI中删除该依赖项
                                 try {
+                                    // 导入refreshSingleDependency会导致循环依赖，直接使用UI模块的函数
+                                    const { removeDependencyItem } = await import('./ui.js');
+                                    
+                                    // 直接从列表中移除该依赖项
+                                    removeDependencyItem(packageName);
+                                    
                                     // 保存当前搜索状态和筛选器状态
                                     const searchInput = document.getElementById('dependency-search');
                                     const searchValue = searchInput ? searchInput.value : '';
                                     const filterSelect = document.getElementById('dependency-filter');
                                     const filterValue = filterSelect ? filterSelect.value : 'all';
-                                    
-                                    // 完全清除所选依赖
-                                    clearSelection();
-                                    
-                                    // 强制从后端重新获取数据
-                                    await refreshDependencies(false);
                                     
                                     // 重新应用搜索过滤
                                     if (searchValue) {
@@ -112,16 +137,16 @@ export const dependencyHandler = {
                                 hideProgressBar();
                                 showNotification(result.message, 'error');
                             }
-                        }
-                    } else if (e.target.classList.contains('update') && !e.target.classList.contains('latest')) {
+                        }                    } else if (e.target.classList.contains('update') && !e.target.classList.contains('latest')) {
                         // 如果不是最新版本（没有latest类），才执行更新操作
                         showProgressBar(`正在更新 ${packageName}...`);
                         const result = await updateDependency(packageName);
                         
                         if (result.success && result.taskId) {
                             monitorTaskProgress(result.taskId, getTaskProgress, async () => {
-                                // 强制刷新依赖列表，不使用缓存，确保从后端获取最新的版本信息
-                                await refreshDependencies(false);
+                                // 使用增量刷新，仅更新该包的信息
+                                const { refreshSingleDependency } = await import('./core.js');
+                                await refreshSingleDependency(packageName, true);
                                 
                                 // 提示更新成功
                                 showNotification(`${packageName} 已更新成功`, 'success');
@@ -514,16 +539,31 @@ export const dependencyHandler = {
             installWhl(file)
         );
     },
-    
-    /**
+      /**
      * 处理单个包安装
      * @param {string} packageName - 包名称
      */
     async handlePackageInstall(packageName) {
-        return this.handleTaskWithProgress(
+        const result = await this.handleTaskWithProgress(
             `正在安装: ${packageName}`,
             installDependency(packageName)
         );
+        
+        if (result) {
+            // 安装成功后，使用增量刷新只更新这个包的信息
+            try {
+                const { refreshSingleDependency } = await import('./core.js');
+                await refreshSingleDependency(packageName, true);
+                return true;
+            } catch (error) {
+                console.error(`刷新依赖 ${packageName} 失败:`, error);
+                // 如果增量刷新失败，回退到完整刷新
+                const { refreshDependencies } = await import('./core.js');
+                await refreshDependencies(false);
+            }
+        }
+        
+        return result;
     },
 
     /**

@@ -7,8 +7,8 @@ import { showNotification, showLoadingMessage,
          updateInitialLoadingProgress } from './modules/ui.js';
 import { dependencyHandler } from './modules/dependency.js';
 import { refreshDependencies } from './modules/core.js';
-// 添加设置处理器导入
-import { settingsHandler } from './modules/settings.js';
+// 添加环境管理器导入
+import { environmentManager } from './modules/environments.js';
 
 // 记录最后一次描述更新检查时间
 let lastDescriptionUpdateCheck = 0;
@@ -86,8 +86,8 @@ function setupEventListeners() {
     // 设置依赖管理相关事件
     dependencyHandler.setupDependencyEvents();
     
-    // 设置设置相关事件
-    settingsHandler.setupSettingsEvents();
+    // 设置环境管理相关事件
+    environmentManager.setupEnvironmentEvents();
     
     updateInitialLoadingProgress(90, '事件初始化完成');
 }
@@ -95,22 +95,33 @@ function setupEventListeners() {
 /**
  * 初始化应用所有功能模块
  */
-function initializeAppFeatures() {
+async function initializeAppFeatures() {
     updateInitialLoadingProgress(95, '初始化应用功能...');
     
     // 记录当前时间作为初始检查点
     lastDescriptionUpdateCheck = Date.now();
     
-    // 启动描述更新检查
+    // 先初始化环境管理器，确保环境信息已加载
+    await environmentManager.initialize();
+    
+    // 启动描述更新检查器（仅设置定时器，不立即执行）
     startDescriptionUpdateChecker();
     
     console.log('所有应用功能已初始化');
     updateInitialLoadingProgress(100, '初始化完成！');
-    
-    // 短暂延迟后隐藏加载界面，让用户看到100%的完成状态
-    setTimeout(() => {
+      // 短暂延迟后隐藏加载界面，让用户看到100%的完成状态
+    setTimeout(async () => {
         hideInitialLoadingScreen();
         appInitialized = true;
+        
+        // 应用完全初始化后，触发一次性的依赖描述更新
+        console.log('应用已完全初始化，开始检查缺失的依赖描述...');
+        const result = await checkDescriptionUpdates(lastDescriptionUpdateCheck / 1000, true); // 使用isFirstLoad=true标记首次加载
+        if (result.hasUpdates) {
+            console.log('发现缺失的依赖描述，正在刷新...');
+            await refreshDependencies(true); // 使用缓存刷新，不重复检查版本
+        }
+        lastDescriptionUpdateCheck = Date.now();
     }, 500);
 }
 

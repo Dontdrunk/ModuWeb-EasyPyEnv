@@ -94,7 +94,31 @@ def check_description_updates():
     """检查是否有新的依赖描述信息"""
     # 获取前端上次更新的时间戳
     last_update = float(request.args.get('lastUpdate', 0))
+    # 检查是否为环境变更请求
+    environment_changed = request.args.get('environmentChanged', 'false').lower() == 'true'
     current_time = time.time()
+    
+    # 检查是否为首次UI加载后的请求（时间戳接近于0表示首次请求）
+    if last_update < 1:
+        # UI首次加载完成，触发只更新缺失描述的操作
+        threading.Thread(
+            target=dependency.async_update_descriptions,
+            kwargs={'only_missing': True},
+            daemon=True
+        ).start()
+        utils.print_status("UI加载完成，开始后台更新缺失的依赖描述", 'info')
+    # 环境变更请求，只更新缺失的依赖描述
+    elif environment_changed:
+        # 环境已变更，触发更新所有依赖描述
+        threading.Thread(
+            target=dependency.async_update_descriptions,
+            kwargs={'only_missing': True},  # 改为只更新缺失的依赖描述
+            daemon=True
+        ).start()
+        utils.print_status("Python环境已切换，开始更新所有的依赖描述", 'info')
+        # 强制标记有更新
+        if hasattr(dependency, 'last_description_update'):
+            dependency.last_description_update = current_time
     
     # 检查是否有更新
     has_updates = False
@@ -490,3 +514,312 @@ def get_dependency_graph(package_name):
     except Exception as e:
         app.logger.error(f"获取依赖关系图失败: {str(e)}", exc_info=True)
         return api_response(False, f"获取依赖关系图失败: {str(e)}", status_code=500)
+
+# 导入新增模块
+import subprocess
+import platform
+import os.path
+
+# 获取所有Python环境
+@app.route('/api/python-environments')
+def get_python_environments():
+    """获取所有已配置的Python环境"""
+    try:
+        environments = config.load_python_environments()
+        
+        # 如果是首次运行且没有环境，尝试添加当前环境
+        if not environments.get("environments") and environments.get("current") is None:
+            current_env = {
+                "id": "system",
+                "name": "当前Python环境",
+                "path": sys.executable,
+                "type": "system",
+                "version": sys.version.split()[0]
+            }
+            environments["environments"] = [current_env]
+            environments["current"] = "system"
+            config.save_python_environments(environments)
+        
+        return jsonify(environments)
+    except Exception as e:
+        utils.print_status(f"获取Python环境列表失败: {e}", 'error')
+        return api_response(False, f"获取Python环境列表失败: {str(e)}", status_code=500)
+
+# 保存Python环境
+@app.route('/api/python-environments', methods=['POST'])
+def save_python_environment():
+    """新增或修改Python环境"""
+    try:
+        data = request.json
+        
+        # 加载现有环境
+        environments = config.load_python_environments()
+        
+        # 生成唯一ID
+        import uuid
+        env_id = data.get("id") or str(uuid.uuid4())
+        
+        # 验证环境路径
+        python_path = data.get("path", "")
+        if not python_path or not os.path.exists(python_path):
+            return api_response(False, "Python可执行文件路径无效", status_code=400)
+        
+        # 获取Python版本
+        try:
+            version_process = subprocess.run(
+                [python_path, "--version"], 
+                capture_output=True, 
+                text=True,
+                check=True
+            )
+            version = version_process.stdout.strip() or version_process.stderr.strip()
+            version = version.replace("Python ", "")
+        except Exception as e:
+            return api_response(False, f"无法获取Python版本: {str(e)}", status_code=400)
+        
+        # 创建或更新环境
+        new_env = {
+            "id": env_id,
+            "name": data.get("name", f"Python {version}"),
+            "path": python_path,
+            "type": data.get("type", "custom"),
+            "version": version
+        }
+        
+        # 更新或添加环境
+        updated = False
+        for i, env in enumerate(environments["environments"]):
+            if env["id"] == env_id:
+                environments["environments"][i] = new_env
+                updated = True
+                break
+        
+        if not updated:
+            environments["environments"].append(new_env)
+        
+        # 保存更新
+        if not config.save_python_environments(environments):
+            return api_response(False, "保存环境配置失败", status_code=500)
+        
+        return api_response(True, "环境已保存", {"environment": new_env})
+        
+    except Exception as e:
+        utils.print_status(f"保存Python环境失败: {e}", 'error')
+        return api_response(False, f"保存Python环境失败: {str(e)}", status_code=500)
+
+# 删除Python环境
+@app.route('/api/python-environments/<env_id>', methods=['DELETE'])
+def delete_python_environment(env_id):
+    """删除Python环境"""
+    try:
+        # 加载现有环境
+        environments = config.load_python_environments()
+        
+        # 检查是否是当前环境
+        if environments.get("current") == env_id:
+            return api_response(False, "不能删除当前使用的环境", status_code=400)
+        
+        # 查找和删除环境
+        found = False
+        for i, env in enumerate(environments["environments"]):
+            if env["id"] == env_id:
+                del environments["environments"][i]
+                found = True
+                break
+        
+        if not found:
+            return api_response(False, "环境不存在", status_code=404)
+        
+        # 保存更新
+        if not config.save_python_environments(environments):
+            return api_response(False, "保存环境配置失败", status_code=500)
+        
+        return api_response(True, "环境已删除")
+        
+    except Exception as e:
+        utils.print_status(f"删除Python环境失败: {e}", 'error')
+        return api_response(False, f"删除Python环境失败: {str(e)}", status_code=500)
+
+# 修改切换环境API
+@app.route('/api/switch-environment', methods=['POST'])
+def switch_environment():
+    """切换到指定的Python环境"""
+    try:
+        data = request.json
+        env_id = data.get("environmentId")
+        
+        if not env_id:
+            return api_response(False, "环境ID不能为空", status_code=400)
+        
+        # 加载环境配置
+        environments = config.load_python_environments()
+        
+        # 查找目标环境
+        target_env = None
+        for env in environments["environments"]:
+            if env["id"] == env_id:
+                target_env = env
+                break
+        
+        if not target_env:
+            return api_response(False, "目标环境不存在", status_code=404)
+        
+        # 检查环境可执行文件是否存在
+        python_path = target_env["path"]
+        if not os.path.exists(python_path):
+            return api_response(False, "Python可执行文件路径无效", status_code=400)
+            
+        # 检查是否是当前环境
+        current_env_id = environments.get("current")
+        if current_env_id == env_id:
+            return api_response(True, "已经是当前环境", {"environment": target_env, "needsRefresh": False})
+            
+        # 更新当前环境
+        environments["current"] = env_id
+        if not config.save_python_environments(environments):
+            return api_response(False, "保存环境配置失败", status_code=500)
+            
+        # 返回成功信息，无需重启应用
+        return api_response(True, "环境切换成功", {
+            "requiresRestart": False, 
+            "needsRefresh": True,
+            "environment": target_env
+        })
+        
+    except Exception as e:
+        utils.print_status(f"切换Python环境失败: {e}", 'error')
+        return api_response(False, f"切换Python环境失败: {str(e)}", status_code=500)
+
+# 浏览Python环境
+@app.route('/api/browse-python-env', methods=['POST'])
+def browse_python_env():
+    """浏览并查找Python环境"""
+    try:
+        # 根据操作系统，搜索常见的Python安装位置
+        os_type = platform.system().lower()
+        potential_paths = []
+        
+        if os_type == 'windows':
+            # 检查常见Windows Python安装位置
+            drives = ['C:', 'D:', 'E:', 'F:']
+            for drive in drives:
+                # 搜索标准Python安装
+                potential_paths.extend([
+                    os.path.join(drive, r'Python*\python.exe'),
+                    os.path.join(drive, r'Program Files\Python*\python.exe'),
+                    os.path.join(drive, r'Program Files (x86)\Python*\python.exe'),
+                    os.path.join(drive, r'Users\*\AppData\Local\Programs\Python\Python*\python.exe'),
+                    os.path.join(drive, r'ProgramData\Anaconda*\python.exe'),
+                    os.path.join(drive, r'Users\*\anaconda*\python.exe'),
+                    os.path.join(drive, r'Users\*\miniconda*\python.exe'),
+                    os.path.join(drive, r'Users\*\Anaconda*\python.exe'),
+                    os.path.join(drive, r'Users\*\Miniconda*\python.exe'),
+                ])
+                # 搜索虚拟环境
+                potential_paths.extend([
+                    os.path.join(drive, r'Users\*\*env*\Scripts\python.exe'),
+                    os.path.join(drive, r'*env*\Scripts\python.exe'),
+                ])
+        elif os_type in ['linux', 'darwin']:  # Linux or macOS
+            # 检查常见Unix-like系统Python位置
+            potential_paths.extend([
+                '/usr/bin/python*',
+                '/usr/local/bin/python*',
+                '/opt/anaconda*/bin/python',
+                '/opt/miniconda*/bin/python',
+                os.path.expanduser('~/anaconda*/bin/python'),
+                os.path.expanduser('~/miniconda*/bin/python'),
+                os.path.expanduser('~/.virtualenvs/*/bin/python'),
+                os.path.expanduser('~/venv*/bin/python'),
+                os.path.expanduser('~/*env*/bin/python'),
+            ])
+        
+        # 执行搜索并验证找到的Python路径
+        found_environments = []
+        
+        for pattern in potential_paths:
+            try:
+                import glob
+                paths = glob.glob(pattern)
+                
+                for path in paths:
+                    if os.path.isfile(path) and os.access(path, os.X_OK):
+                        try:
+                            # 验证是否是有效的Python可执行文件
+                            version_process = subprocess.run(
+                                [path, "--version"], 
+                                capture_output=True, 
+                                text=True,
+                                timeout=2  # 设置超时避免挂起
+                            )
+                            if version_process.returncode == 0:
+                                version_output = version_process.stdout.strip() or version_process.stderr.strip()
+                                if "Python" in version_output:
+                                    version = version_output.replace("Python ", "").strip()
+                                    
+                                    # 生成环境名称
+                                    dirs = path.split(os.sep)
+                                    env_name = f"Python {version}"
+                                    
+                                    # 尝试从路径推断更好的名称
+                                    for i in range(len(dirs)-2, 0, -1):
+                                        if "env" in dirs[i].lower() or "conda" in dirs[i].lower() or "python" in dirs[i].lower():
+                                            env_name = f"{dirs[i]} ({version})"
+                                            break
+                                    
+                                    # 确定环境类型
+                                    env_type = "system"
+                                    if "virtualenv" in path.lower() or "venv" in path.lower():
+                                        env_type = "virtualenv"
+                                    elif "conda" in path.lower():
+                                        env_type = "conda"
+                                    elif "portable" in path.lower():
+                                        env_type = "portable"
+                                    
+                                    # 添加到找到的环境列表
+                                    found_environments.append({
+                                        "path": path,
+                                        "version": version,
+                                        "name": env_name,
+                                        "type": env_type
+                                    })
+                        except Exception as e:
+                            print(f"验证Python路径 {path} 时出错: {str(e)}")
+            except Exception as e:
+                print(f"搜索模式 {pattern} 时出错: {str(e)}")
+        
+        # 去除重复项
+        unique_environments = []
+        seen_paths = set()
+        
+        for env in found_environments:
+            if env["path"] not in seen_paths:
+                seen_paths.add(env["path"])
+                unique_environments.append(env)
+        
+        return api_response(True, f"找到 {len(unique_environments)} 个Python环境", {
+            "environments": unique_environments
+        })
+        
+    except Exception as e:
+        utils.print_status(f"浏览Python环境失败: {e}", 'error')
+        return api_response(False, f"浏览Python环境失败: {str(e)}", status_code=500)
+
+# 获取单个依赖的详细信息
+@app.route('/api/dependency/<package_name>')
+def get_single_dependency(package_name):
+    """获取单个依赖的详细信息，支持安装/卸载/更新后的增量刷新"""
+    try:
+        # 检查是否强制刷新PyPI缓存
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
+        
+        # 获取单个依赖的信息
+        dep_info = dependency.get_single_dependency_info(package_name, force_refresh)
+        
+        if dep_info:
+            return jsonify(dep_info)
+        else:
+            return api_response(False, f"依赖 {package_name} 未安装或不存在", status_code=404)
+    except Exception as e:
+        utils.print_status(f"获取依赖 {package_name} 信息失败: {e}", 'error')
+        return api_response(False, f"获取依赖信息失败: {str(e)}", status_code=500)

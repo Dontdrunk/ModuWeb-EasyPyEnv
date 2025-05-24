@@ -1,0 +1,19 @@
+{
+  "environments": [
+    {
+      "id": "system",
+      "name": "系统环境",
+      "path": "C:\\Users\\Dontdrunk\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "type": "system",
+      "version": "3.12.9"
+    },
+    {
+      "id": "4e4d80b2-828f-40ce-ad17-dd2ea787e963",
+      "name": "ComfyUI环境",
+      "path": "D:\\Projects\\Procedure\\ComfyUI-X\\python_embeded\\python.exe",
+      "type": "custom",
+      "version": "3.12.9"
+    }
+  ],
+  "current": "system"
+}

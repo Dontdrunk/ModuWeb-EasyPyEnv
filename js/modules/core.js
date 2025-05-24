@@ -78,3 +78,58 @@ export async function refreshDependencies(useCache = false, progressCallback = n
         return [];
     }
 }
+
+/**
+ * 刷新单个依赖信息 - 增量刷新功能
+ * @param {string} packageName - 包名
+ * @param {boolean} forceRefresh - 是否强制刷新PyPI版本信息
+ * @returns {Promise<Object>} 依赖信息
+ */
+export async function refreshSingleDependency(packageName, forceRefresh = false) {
+    try {
+        console.log(`刷新单个依赖: ${packageName} (强制刷新: ${forceRefresh})`);
+        
+        // 添加加载状态表示
+        const dependencyItem = document.querySelector(`.dependency-item[data-name="${packageName}"]`);
+        if (dependencyItem) {
+            dependencyItem.classList.add('refreshing');
+        }
+        
+        // 从API获取单个依赖信息
+        const { getSingleDependency } = await import('./api.js');
+        const dependencyInfo = await getSingleDependency(packageName, forceRefresh);
+        
+        if (!dependencyInfo) {
+            console.log(`依赖 ${packageName} 不存在或未安装`);
+            
+            // 移除加载状态
+            if (dependencyItem) {
+                dependencyItem.classList.remove('refreshing');
+            }
+            
+            return null;
+        }
+        
+        // 更新DOM中的对应项
+        const { updateDependencyItem } = await import('./ui.js');
+        updateDependencyItem(dependencyInfo);
+        
+        // 移除加载状态
+        if (dependencyItem) {
+            dependencyItem.classList.remove('refreshing');
+        }
+        
+        console.log(`依赖 ${packageName} 已刷新，版本: ${dependencyInfo.version}`);
+        return dependencyInfo;
+    } catch (error) {
+        console.error(`刷新依赖 ${packageName} 失败:`, error);
+        
+        // 清理可能的加载状态
+        const dependencyItem = document.querySelector(`.dependency-item[data-name="${packageName}"]`);
+        if (dependencyItem) {
+            dependencyItem.classList.remove('refreshing');
+        }
+        
+        return null;
+    }
+}

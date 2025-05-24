@@ -20,6 +20,8 @@ CACHE_FILE = os.path.join(CONFIG_DIR, 'dependency_cache.json')
 DEPENDENCIES_CONFIG_FILE = os.path.join(CONFIG_DIR, 'dependencies_config.json')
 # 用户设置文件路径
 USER_SETTINGS_FILE = os.path.join(CONFIG_DIR, 'user_settings.json')
+# 环境配置文件路径
+PYTHON_ENVS_FILE = os.path.join(CONFIG_DIR, 'python_environments.json')
 
 # 确保配置目录存在
 if not os.path.exists(CONFIG_DIR):
@@ -63,9 +65,7 @@ def load_user_settings():
     Returns:
         dict: 用户设置字典
     """
-    default_settings = {
-        "theme": "light"
-    }
+    default_settings = {}
     
     if os.path.exists(USER_SETTINGS_FILE):
         try:
@@ -197,6 +197,72 @@ def is_cache_valid():
     print(f"缓存年龄: {cache_age_in_days:.2f}天, 缓存{'有效' if cache_age_in_days < 1 else '失效'}")
     
     return cache_age_in_days < 1
+
+# 加载Python环境配置
+def load_python_environments():
+    """
+    加载已保存的Python环境配置
+    
+    Returns:
+        dict: Python环境配置字典，包含路径和类型
+    """
+    default_environments = {
+        "environments": [],
+        "current": None
+    }
+    
+    if os.path.exists(PYTHON_ENVS_FILE):
+        try:
+            with open(PYTHON_ENVS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"加载Python环境配置文件失败: {e}")
+    
+    # 如果配置文件不存在或加载失败，创建默认配置文件
+    save_python_environments(default_environments)
+    return default_environments
+
+# 保存Python环境配置
+def save_python_environments(environments):
+    """
+    保存Python环境配置到文件
+    
+    Args:
+        environments (dict): Python环境配置
+        
+    Returns:
+        bool: 是否保存成功
+    """
+    try:
+        with open(PYTHON_ENVS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(environments, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"保存Python环境配置失败: {e}")
+        return False
+
+# 添加获取当前活动Python环境路径函数
+def get_active_python_executable():
+    """
+    获取当前活动的Python可执行文件路径
+    
+    Returns:
+        str: Python可执行文件路径
+    """
+    environments = load_python_environments()
+    current_env_id = environments.get('current')
+    
+    if not current_env_id:
+        # 默认使用当前Python
+        return sys.executable
+    
+    # 查找当前环境信息
+    for env in environments.get('environments', []):
+        if env.get('id') == current_env_id and os.path.exists(env.get('path', '')):
+            return env.get('path')
+    
+    # 如果找不到有效的环境，返回当前Python
+    return sys.executable
 
 # 加载所有配置
 dependency_config = load_dependencies_config()

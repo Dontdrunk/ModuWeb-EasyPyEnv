@@ -514,15 +514,51 @@ function showErrorDetailsModal(errors) {
  */
 export function showNotification(message, type) {
     const notification = document.getElementById('notification');
-    notification.textContent = message;
+    const notificationMessage = notification.querySelector('.notification-message');
+    const notificationIcon = notification.querySelector('.notification-icon');
+    
+    // 设置消息内容
+    notificationMessage.textContent = message;
+    
+    // 设置图标
+    let iconSvg;
+    switch(type) {
+        case 'success':
+            iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
+            break;
+        case 'error':
+            iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>';
+            break;
+        case 'warning':
+            iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+            break;
+        default:
+            iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>';
+    }
+    notificationIcon.innerHTML = iconSvg;
+    
+    // 显示通知
     notification.className = `notification ${type} show`;
+    
+    // 添加关闭按钮事件
+    const closeBtn = notification.querySelector('.notification-close');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 300);
+        };
+    }
     
     // 3秒后自动隐藏
     setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => {
-            notification.classList.add('hidden');
-        }, 300);
+        if (notification.classList.contains('show')) {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 300);
+        }
     }, 3000);
 }
 
@@ -1038,4 +1074,74 @@ export function hideInitialLoadingScreen() {
             }
         }, 500);
     }
+}
+
+/**
+ * 更新单个依赖项的UI
+ * @param {Object} dependency - 依赖信息对象
+ * @returns {boolean} 是否成功更新
+ */
+export function updateDependencyItem(dependency) {
+    if (!dependency || !dependency.name) {
+        console.error('无效的依赖信息:', dependency);
+        return false;
+    }
+
+    // 查找依赖项对应的DOM元素
+    const dependencyItem = document.querySelector(`.dependency-item[data-name="${dependency.name}"]`);
+    
+    if (!dependencyItem) {
+        console.log(`找不到依赖项元素: ${dependency.name}`);
+        return false;
+    }
+    
+    try {
+        // 更新版本信息
+        const versionElement = dependencyItem.querySelector('.col-version');
+        if (versionElement) {
+            versionElement.textContent = dependency.version;
+        }
+        
+        // 更新描述信息
+        const descriptionElement = dependencyItem.querySelector('.col-description');
+        if (descriptionElement) {
+            descriptionElement.textContent = dependency.description || '';
+        }
+        
+        // 更新"最新版本"状态
+        const updateButton = dependencyItem.querySelector('.action-btn.update');
+        if (updateButton) {
+            if (dependency.isLatest) {
+                updateButton.classList.add('latest');
+            } else {
+                updateButton.classList.remove('latest');
+            }
+        }
+        
+        // 添加暂时的高亮效果表示刚刚更新
+        dependencyItem.classList.add('just-updated');
+        setTimeout(() => {
+            dependencyItem.classList.remove('just-updated');
+        }, 3000);
+        
+        console.log(`依赖项 ${dependency.name} UI已更新`);
+        return true;
+    } catch (error) {
+        console.error(`更新依赖项 ${dependency.name} UI时出错:`, error);
+        return false;
+    }
+}
+
+/**
+ * 从列表中移除依赖项
+ * @param {string} packageName - 包名
+ * @returns {boolean} 是否成功移除
+ */
+export function removeDependencyItem(packageName) {
+    const dependencyItem = document.querySelector(`.dependency-item[data-name="${packageName}"]`);
+    if (dependencyItem) {
+        dependencyItem.remove();
+        return true;
+    }
+    return false;
 }

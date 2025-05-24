@@ -190,17 +190,37 @@ export async function getTaskProgress(taskId) {
 /**
  * 检查描述更新
  * @param {number} lastUpdate - 上次更新时间戳 
+ * @param {boolean} isFirstLoad - 是否为UI首次加载后的请求
+ * @param {boolean} environmentChanged - 环境是否发生变更
  * @returns {Promise<Object>} 响应对象
  */
-export async function checkDescriptionUpdates(lastUpdate) {
+export async function checkDescriptionUpdates(lastUpdate, isFirstLoad = false, environmentChanged = false) {
     try {
-        const response = await fetch(`/api/check-description-updates?lastUpdate=${lastUpdate}`);
+        // 如果是UI首次加载后的请求，传递特殊的lastUpdate值
+        const timestamp = isFirstLoad ? 0 : lastUpdate;
+        
+        const url = new URL('/api/check-description-updates', window.location.origin);
+        url.searchParams.append('lastUpdate', timestamp);
+        if (environmentChanged) {
+            url.searchParams.append('environmentChanged', 'true');
+        }
+        
+        const response = await fetch(url.toString());
         
         if (!response.ok) {
             return { hasUpdates: false };
         }
         
-        return await response.json();
+        const result = await response.json();
+        
+        // 添加日志
+        if (isFirstLoad) {
+            console.log('UI加载完成，已向服务器请求更新缺失的依赖描述');
+        } else if (environmentChanged) {
+            console.log('Python环境已切换，已向服务器请求更新依赖描述');
+        }
+        
+        return result;
     } catch (error) {
         console.error('检查描述更新失败:', error);
         return { hasUpdates: false };
@@ -295,7 +315,7 @@ function normalizeVersion(version) {
 /**
  * 更新所选依赖
  * @param {Array} packageNames - 包名称数组
- * @returns {Promise<Object>} 响应对象
+ * @returns {Promise<Object>}
  */
 export async function updateSelected(packageNames) {
     try {
@@ -557,4 +577,104 @@ function compareVersions(v1, v2) {
     }
     
     return 0;
+}
+
+/**
+ * 获取可用的Python环境
+ * @returns {Promise<Object>} 环境信息
+ */
+export async function getPythonEnvironments() {
+    try {
+        return await apiRequest(`${API_BASE_URL}/python-environments`);
+    } catch (error) {
+        console.error('获取Python环境失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 保存Python环境配置
+ * @param {Object} environment - 环境配置对象
+ * @returns {Promise<Object>} 响应结果
+ */
+export async function saveEnvironment(environment) {
+    try {
+        return await apiRequest(`${API_BASE_URL}/python-environments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(environment)
+        });
+    } catch (error) {
+        console.error('保存环境配置失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 删除Python环境
+ * @param {string} environmentId - 环境ID
+ * @returns {Promise<Object>} 响应结果
+ */
+export async function deleteEnvironment(environmentId) {
+    try {
+        return await apiRequest(`${API_BASE_URL}/python-environments/${environmentId}`, {
+            method: 'DELETE'
+        });
+    } catch (error) {
+        console.error('删除环境失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 切换到指定Python环境
+ * @param {string} environmentId - 环境ID
+ * @returns {Promise<Object>} 响应结果
+ */
+export async function switchEnvironment(environmentId) {
+    try {
+        return await apiRequest(`${API_BASE_URL}/switch-environment`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ environmentId })
+        });
+    } catch (error) {
+        console.error('切换环境失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 浏览并查找可用的Python环境
+ * @returns {Promise<Object>} 找到的环境列表
+ */
+export async function browsePythonEnvironments() {
+    try {
+        return await apiRequest(`${API_BASE_URL}/browse-python-env`, {
+            method: 'POST'
+        });
+    } catch (error) {
+        console.error('浏览Python环境失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 获取单个依赖的详细信息
+ * @param {string} packageName - 包名
+ * @param {boolean} forceRefresh - 是否强制刷新PyPI版本信息
+ * @returns {Promise<Object>} 单个依赖的详细信息
+ */
+export async function getSingleDependency(packageName, forceRefresh = false) {
+    try {
+        const url = `${API_BASE_URL}/dependency/${encodeURIComponent(packageName)}?force_refresh=${forceRefresh}`;
+        return await apiRequest(url);
+    } catch (error) {
+        console.error(`获取依赖 ${packageName} 信息失败:`, error);
+        throw error;
+    }
 }
