@@ -96,6 +96,7 @@ https://github.com/user-attachments/assets/87a2be3f-c9d3-46be-9526-ace0223d7330
 
 ### V1.0.0 (2025-04-02)
 
+- 最初版本上线，支持管理本地Python环境
 
 ## 支持作者
 
