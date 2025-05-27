@@ -1,14 +1,11 @@
 // 主入口文件 - 导入模块并初始化应用
 
 // 导入必要的模块
-import { loadDependencies, checkDescriptionUpdates, checkLatestVersions } from './modules/api.js';
+import { loadDependencies, checkDescriptionUpdates, checkLatestVersions, refreshDependencies } from './modules/core-api.js';
 import { showNotification, showLoadingMessage, 
          showInitialLoadingScreen, hideInitialLoadingScreen,
-         updateInitialLoadingProgress } from './modules/ui.js';
-import { dependencyHandler } from './modules/dependency.js';
-import { refreshDependencies } from './modules/core.js';
-// 添加环境管理器导入
-import { environmentManager } from './modules/environments.js';
+         updateInitialLoadingProgress } from './modules/ui-components.js';
+import { dependencyHandler, environmentManager } from './modules/dependency-manager.js';
 
 // 记录最后一次描述更新检查时间
 let lastDescriptionUpdateCheck = 0;

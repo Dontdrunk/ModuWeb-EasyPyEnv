@@ -5,10 +5,9 @@ AI环境管理工具 - Python后端模块包
 """
 
 # 导出主要模块，使它们可以直接从包中导入
-from . import config
+from . import core
 from . import dependency
 from . import api
-from . import utils
 
 # 版本信息
 __version__ = '1.0.0'

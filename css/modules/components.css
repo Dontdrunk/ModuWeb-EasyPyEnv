@@ -165,6 +165,17 @@
     transform: none;
 }
 
+/* 刚更新的依赖项高亮效果 */
+.dependency-item.just-updated {
+    background-color: var(--primary-100);
+    border-left: 4px solid var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.dependency-item.just-updated:hover {
+    background-color: var(--primary-200);
+}
+
 /* 依赖列表头部 */
 .dependency-header {
     display: flex;

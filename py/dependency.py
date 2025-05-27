@@ -26,15 +26,14 @@ else:
     from importlib.metadata import distributions
 
 # 导入自定义模块
-from . import config
-from . import utils
+from . import core
 
-# 从config模块导入配置数据
-SYSTEM_DEPENDENCIES = config.SYSTEM_DEPENDENCIES
-CORE_DEPENDENCIES = config.CORE_DEPENDENCIES
-AI_MODEL_DEPENDENCIES = config.AI_MODEL_DEPENDENCIES
-APP_DEPENDENCIES = config.APP_DEPENDENCIES
-CONFIG_DIR = config.CONFIG_DIR
+# 从core模块导入配置数据
+SYSTEM_DEPENDENCIES = core.SYSTEM_DEPENDENCIES
+CORE_DEPENDENCIES = core.CORE_DEPENDENCIES
+AI_MODEL_DEPENDENCIES = core.AI_MODEL_DEPENDENCIES
+APP_DEPENDENCIES = core.APP_DEPENDENCIES
+CONFIG_DIR = core.CONFIG_DIR
 
 # 依赖描述缓存
 dependency_descriptions = {}
@@ -45,10 +44,9 @@ def load_descriptions():
     加载依赖描述缓存
     
     Returns:
-        dict: 依赖描述字典
-    """
+        dict: 依赖描述字典    """
     global dependency_descriptions
-    dependency_descriptions = config.load_description_cache()
+    dependency_descriptions = core.load_description_cache()
     return dependency_descriptions
 
 # 保存依赖描述缓存
@@ -59,7 +57,32 @@ def save_descriptions():
     Returns:
         bool: 是否成功保存
     """
-    return config.save_description_cache(dependency_descriptions)
+    return core.save_description_cache(dependency_descriptions)
+
+# 获取单个依赖信息
+def get_single_dependency(package_name):
+    """
+    获取单个依赖的详细信息
+    
+    Args:
+        package_name (str): 依赖包名称
+        
+    Returns:
+        dict: 依赖信息字典，如果找不到则返回None
+    """
+    try:
+        # 获取当前环境中安装的所有依赖
+        all_dependencies = get_all_dependencies(use_cache=False)
+        
+        # 查找指定依赖
+        for dep in all_dependencies:
+            if dep.get('name', '').lower() == package_name.lower():
+                return dep
+                
+        return None
+    except Exception as e:
+        core.print_status(f"获取单个依赖信息时出错: {str(e)}", 'error')
+        return None
 
 # 异步更新依赖描述
 def async_update_descriptions(only_missing=True):
@@ -76,11 +99,11 @@ def async_update_descriptions(only_missing=True):
         missing_deps = []
         
         # 获取当前激活的Python环境路径
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 如果非only_missing模式 (环境已变更)，记录日志
         if not only_missing:
-            utils.print_status(f"环境切换后，将更新所有依赖的描述", 'info')
+            core.print_status(f"环境切换后，将更新所有依赖的描述", 'info')
         
         # 创建一个临时脚本，用于获取依赖列表
         script = """
@@ -115,7 +138,7 @@ except Exception as e:
         
         try:
             # 执行脚本获取依赖列表
-            utils.print_status(f"正在使用 {python_executable} 获取当前环境的依赖列表", 'info')
+            core.print_status(f"正在使用 {python_executable} 获取当前环境的依赖列表", 'info')
             
             result = subprocess.run(
                 [python_executable, temp_path],
@@ -124,12 +147,12 @@ except Exception as e:
             )
             
             if result.returncode != 0:
-                utils.print_status(f"获取依赖失败: {result.stderr}", 'error')
+                core.print_status(f"获取依赖失败: {result.stderr}", 'error')
                 return
             
             # 解析脚本输出获取所有依赖包名
             package_list = json.loads(result.stdout.strip())
-            utils.print_status(f"当前环境共有 {len(package_list)} 个依赖包", 'info')
+            core.print_status(f"当前环境共有 {len(package_list)} 个依赖包", 'info')
             
             # 不论是否环境变更，始终只更新缺失的描述
             # 统计缺失的依赖
@@ -138,11 +161,11 @@ except Exception as e:
             missing_keys = current_keys - old_keys
             
             if missing_keys:
-                utils.print_status(f"发现 {len(missing_keys)} 个需要获取描述的新包", 'info')
+                core.print_status(f"发现 {len(missing_keys)} 个需要获取描述的新包", 'info')
                 # 只把真正缺失描述的包添加到更新列表
                 missing_deps = list(missing_keys)
             else:
-                utils.print_status("当前环境中的所有依赖描述都已是最新状态", 'info')
+                core.print_status("当前环境中的所有依赖描述都已是最新状态", 'info')
                 
                 # 即使没有缺失的描述，当环境变更时也更新时间戳以触发前端刷新
                 if not only_missing:
@@ -162,7 +185,7 @@ except Exception as e:
         
         # 如果有需要更新描述的依赖，打印日志
         if missing_deps:
-            utils.print_status(f"发现 {len(missing_deps)} 个需要更新描述的依赖，将在后台更新", 'info')
+            core.print_status(f"发现 {len(missing_deps)} 个需要更新描述的依赖，将在后台更新", 'info')
             
         # 获取需要更新的依赖的描述
         for pkg_name in missing_deps:
@@ -175,10 +198,10 @@ except Exception as e:
                     dependency_descriptions[pkg_name] = description
                     updated = True
             except Exception as e:
-                utils.print_status(f"更新 {pkg_name} 的描述时出错: {e}", 'warning')
+                core.print_status(f"更新 {pkg_name} 的描述时出错: {e}", 'warning')
         
         if updated:
-            utils.print_status(f"已更新 {len(missing_deps)} 个依赖的描述", 'info')
+            core.print_status(f"已更新 {len(missing_deps)} 个依赖的描述", 'info')
             save_descriptions()
             # 标记更新时间戳，这个会被暴露给API模块使用
             if not hasattr(sys.modules[__name__], 'last_description_update'):
@@ -186,9 +209,9 @@ except Exception as e:
             else:
                 sys.modules[__name__].last_description_update = time.time()
         elif not missing_deps:
-            utils.print_status("当前环境中的所有依赖描述都已是最新状态", 'info')
+            core.print_status("当前环境中的所有依赖描述都已是最新状态", 'info')
     except Exception as e:
-        utils.print_status(f"异步更新依赖描述时出错: {e}", 'error')
+        core.print_status(f"异步更新依赖描述时出错: {e}", 'error')
 
 # 获取所有已安装的依赖信息
 def get_all_dependencies(use_cache=True):
@@ -211,7 +234,7 @@ def get_all_dependencies(use_cache=True):
     dependency_dict = {}
     
     # 获取当前激活的Python环境路径
-    python_executable = config.get_active_python_executable()
+    python_executable = core.get_active_python_executable()
     
     # 使用subprocess直接调用指定的Python环境获取依赖列表
     try:
@@ -258,7 +281,7 @@ except Exception as e:
             )
             
             if result.returncode != 0:
-                utils.print_status(f"获取依赖失败: {result.stderr}", 'error')
+                core.print_status(f"获取依赖失败: {result.stderr}", 'error')
                 return []
             
             # 解析脚本输出
@@ -282,7 +305,7 @@ except Exception as e:
                         if current_ver <= existing_ver:
                             continue
                     except Exception as e:
-                        utils.print_status(f"版本比较出错 {pkg_name}: {e}", 'warning')
+                        core.print_status(f"版本比较出错 {pkg_name}: {e}", 'warning')
                         # 出错时默认保留已有版本
                         continue
                 
@@ -318,7 +341,7 @@ except Exception as e:
                                     # 如果精确比较失败，使用简化比较
                                     is_latest = (pkg_version == latest_version)
                 except Exception as e:
-                    utils.print_status(f"获取{pkg_name}的最新版本信息失败: {e}", 'warning')
+                    core.print_status(f"获取{pkg_name}的最新版本信息失败: {e}", 'warning')
                     # 出错时默认为非最新版本
                     is_latest = False
                 
@@ -342,7 +365,7 @@ except Exception as e:
             except:
                 pass
     except Exception as e:
-        utils.print_status(f"获取依赖列表失败: {e}", 'error')
+        core.print_status(f"获取依赖列表失败: {e}", 'error')
         return []
     
     # 将字典值转换为列表
@@ -384,11 +407,9 @@ def refresh_version_cache(force_refresh=False):
     # 从缓存中移除过期条目
     for key in expired_keys:
         _pypi_version_cache.pop(key, None)
-    
-    # 如果有条目被移除，输出日志
+      # 如果有条目被移除，输出日志
     if expired_keys:
-        from . import utils
-        utils.print_status(f"已清理 {len(expired_keys)} 个过期的PyPI版本缓存条目", 'info')
+        core.print_status(f"已清理 {len(expired_keys)} 个过期的PyPI版本缓存条目", 'info')
 
 def get_latest_version_from_pypi(package_name, force_refresh=False):
     """
@@ -426,7 +447,7 @@ def get_latest_version_from_pypi(package_name, force_refresh=False):
         else:
             return {'version': '', 'timestamp': current_time}
     except Exception as e:
-        utils.print_status(f"获取{package_name}的PyPI信息失败: {e}", 'warning')
+        core.print_status(f"获取{package_name}的PyPI信息失败: {e}", 'warning')
         return {'version': '', 'timestamp': current_time}
 
 # 版本标准化函数
@@ -489,10 +510,10 @@ def uninstall_dependency(dependency):
         if not installed:
             return False, f'{dependency} 未安装或已被卸载'
         
-        utils.print_status(f"正在卸载 {dependency}...", 'start')
+        core.print_status(f"正在卸载 {dependency}...", 'start')
         
         # 使用当前活动环境的Python
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 执行卸载命令
         process = subprocess.run(
@@ -504,13 +525,13 @@ def uninstall_dependency(dependency):
         # 检查返回状态
         if process.returncode != 0:
             error_message = process.stderr or "卸载失败，但没有详细错误信息"
-            utils.print_status(f"卸载 {dependency} 失败: {error_message}", 'error')
+            core.print_status(f"卸载 {dependency} 失败: {error_message}", 'error')
             return False, f'卸载失败: {error_message}'
         
-        utils.print_status(f"成功卸载 {dependency}", 'success')
+        core.print_status(f"成功卸载 {dependency}", 'success')
         return True, f'成功卸载: {dependency}'
     except Exception as e:
-        utils.print_status(f"卸载 {dependency} 过程中出错: {str(e)}", 'error')
+        core.print_status(f"卸载 {dependency} 过程中出错: {str(e)}", 'error')
         return False, f'卸载过程中出错: {str(e)}'
 
 # 更新依赖
@@ -526,28 +547,28 @@ def update_dependency(dependency, task_id):
         bool: 是否成功
     """
     try:
-        utils.update_task_progress(task_id, 10, f'开始更新 {dependency}...')
+        core.update_task_progress(task_id, 10, f'开始更新 {dependency}...')
         
         # 更新依赖
-        utils.print_status(f"正在更新 {dependency} 到最新版本...", 'start')
+        core.print_status(f"正在更新 {dependency} 到最新版本...", 'start')
         
         # 使用当前活动环境的Python
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 使用流式处理函数处理命令输出
         cmd = [python_executable, '-m', 'pip', 'install', '--upgrade', dependency]
-        success = utils.stream_process_output(cmd, task_id, dependency)
+        success = core.stream_process_output(cmd, task_id, dependency)
         
         if not success:
-            utils.print_status(f"更新 {dependency} 失败", 'error')
-            utils.update_task_progress(task_id, 100, f'更新 {dependency} 失败')
+            core.print_status(f"更新 {dependency} 失败", 'error')
+            core.update_task_progress(task_id, 100, f'更新 {dependency} 失败')
             return False
         
-        utils.print_status(f"成功更新 {dependency} 到最新版本", 'success')
-        utils.update_task_progress(task_id, 100, f'成功更新 {dependency}')
+        core.print_status(f"成功更新 {dependency} 到最新版本", 'success')
+        core.update_task_progress(task_id, 100, f'成功更新 {dependency}')
         return True
     except Exception as e:
-        utils.print_status(f"更新 {dependency} 时发生错误: {str(e)}", 'error')
+        core.print_status(f"更新 {dependency} 时发生错误: {str(e)}", 'error')
         return False
 
 # 切换版本
@@ -564,28 +585,28 @@ def switch_version(package, version, task_id):
         bool: 是否成功
     """
     try:
-        utils.update_task_progress(task_id, 10, f'开始将 {package} 切换到版本 {version}...')
+        core.update_task_progress(task_id, 10, f'开始将 {package} 切换到版本 {version}...')
         
         # 切换版本
-        utils.print_status(f"正在将 {package} 切换到版本 {version}...", 'start')
+        core.print_status(f"正在将 {package} 切换到版本 {version}...", 'start')
         
         # 使用当前活动环境的Python
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 使用流式处理函数处理命令输出
         cmd = [python_executable, '-m', 'pip', 'install', f'{package}=={version}', '--force-reinstall']
-        success = utils.stream_process_output(cmd, task_id, package)
+        success = core.stream_process_output(cmd, task_id, package)
         
         if not success:
-            utils.print_status(f"切换 {package} 到版本 {version} 失败", 'error')
-            utils.update_task_progress(task_id, 100, f'切换 {package} 到版本 {version} 失败')
+            core.print_status(f"切换 {package} 到版本 {version} 失败", 'error')
+            core.update_task_progress(task_id, 100, f'切换 {package} 到版本 {version} 失败')
             return False
         
-        utils.print_status(f"成功将 {package} 切换到版本 {version}", 'success')
-        utils.update_task_progress(task_id, 100, f'成功将 {package} 切换到版本 {version}')
+        core.print_status(f"成功将 {package} 切换到版本 {version}", 'success')
+        core.update_task_progress(task_id, 100, f'成功将 {package} 切换到版本 {version}')
         return True
     except Exception as e:
-        utils.print_status(f"切换版本时发生错误: {str(e)}", 'error')
+        core.print_status(f"切换版本时发生错误: {str(e)}", 'error')
         return False
 
 # 批量卸载
@@ -612,7 +633,7 @@ def batch_uninstall(packages, task_id):
                 continue
             
             # 更新进度
-            utils.update_task_progress(
+            core.update_task_progress(
                 task_id, 
                 index + 1, 
                 f'卸载 {pkg} ({index + 1}/{total})'
@@ -627,7 +648,7 @@ def batch_uninstall(packages, task_id):
             errors.append(f"{pkg}: {str(e)}")
     
     # 完成任务
-    utils.complete_task(task_id, errors)
+    core.complete_task(task_id, errors)
     
     # 如果有错误，则返回失败
     return len(errors) == 0
@@ -650,7 +671,7 @@ def batch_update(packages, task_id):
     for index, pkg in enumerate(packages):
         try:
             # 更新进度
-            utils.update_task_progress(
+            core.update_task_progress(
                 task_id, 
                 index + 1, 
                 f'更新 {pkg} ({index + 1}/{total})'
@@ -665,7 +686,7 @@ def batch_update(packages, task_id):
             errors.append(f"{pkg}: {str(e)}")
     
     # 完成任务
-    utils.complete_task(task_id, errors)
+    core.complete_task(task_id, errors)
     
     # 如果有错误，则返回失败
     return len(errors) == 0
@@ -682,9 +703,9 @@ def install_dependency(package_name):
         tuple: (success, message) 元组
     """
     try:
-        utils.print_status(f"正在安装 {package_name}...", 'start')
+        core.print_status(f"正在安装 {package_name}...", 'start')
         # 使用当前活动环境的Python
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 使用subprocess.run而不是check_call，这样可以捕获输出和返回码
         result = subprocess.run(
@@ -695,16 +716,16 @@ def install_dependency(package_name):
         
         # 检查命令执行结果
         if result.returncode == 0:
-            utils.print_status(f"成功安装 {package_name}", 'success')
+            core.print_status(f"成功安装 {package_name}", 'success')
             return True, f'成功安装: {package_name}'
         else:
             # 返回pip命令的错误信息
             error_message = result.stderr.strip() or '未知错误'
-            utils.print_status(f"安装 {package_name} 失败: {error_message}", 'error')
+            core.print_status(f"安装 {package_name} 失败: {error_message}", 'error')
             return False, f'安装失败: {error_message}'
             
     except Exception as e:
-        utils.print_status(f"处理安装请求时出错: {str(e)}", 'error')
+        core.print_status(f"处理安装请求时出错: {str(e)}", 'error')
         return False, f'安装失败: {str(e)}'
 
 # 安装wheel文件
@@ -722,26 +743,26 @@ def install_whl(file_path, task_id):
     file_name = os.path.basename(file_path)
     
     try:
-        utils.update_task_progress(task_id, 10, f'准备安装 {file_name}...')
-        utils.print_status(f"正在安装wheel文件: {file_name}", 'start')
+        core.update_task_progress(task_id, 10, f'准备安装 {file_name}...')
+        core.print_status(f"正在安装wheel文件: {file_name}", 'start')
         
         # 使用当前活动环境的Python
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 使用流式处理输出
         cmd = [python_executable, '-m', 'pip', 'install', file_path]
-        success = utils.stream_process_output(cmd, task_id, file_name)
+        success = core.stream_process_output(cmd, task_id, file_name)
         
         if not success:
-            utils.print_status(f"安装 {file_name} 失败", 'error')
-            utils.update_task_progress(task_id, 100, f'安装 {file_name} 失败')
+            core.print_status(f"安装 {file_name} 失败", 'error')
+            core.update_task_progress(task_id, 100, f'安装 {file_name} 失败')
             return False
         
-        utils.print_status(f"成功安装 {file_name}", 'success')
-        utils.update_task_progress(task_id, 100, f'成功安装 {file_name}')
+        core.print_status(f"成功安装 {file_name}", 'success')
+        core.update_task_progress(task_id, 100, f'成功安装 {file_name}')
         return True
     except Exception as e:
-        utils.print_status(f"安装 {file_name} 时发生错误: {str(e)}", 'error')
+        core.print_status(f"安装 {file_name} 时发生错误: {str(e)}", 'error')
         return False
 
 # 安装requirements文件
@@ -759,37 +780,37 @@ def install_requirements(file_path, task_id):
     file_name = os.path.basename(file_path)
     
     try:
-        utils.update_task_progress(task_id, 0, '正在读取requirements.txt文件...')
-        utils.print_status(f"正在读取文件 {file_name}...", 'start')
+        core.update_task_progress(task_id, 0, '正在读取requirements.txt文件...')
+        core.print_status(f"正在读取文件 {file_name}...", 'start')
         
         # 读取requirements文件
         with open(file_path, 'r') as f:
             requirements = [line.strip() for line in f.readlines() if line.strip() and not line.strip().startswith('#')]
         
         if not requirements:
-            utils.update_task_progress(task_id, 100, '没有找到有效的包，文件可能为空')
-            utils.print_status(f"文件 {file_name} 为空或只包含注释", 'warning')
-            utils.complete_task(task_id, [{"package": file_name, "error": "文件为空或只包含注释"}])
+            core.update_task_progress(task_id, 100, '没有找到有效的包，文件可能为空')
+            core.print_status(f"文件 {file_name} 为空或只包含注释", 'warning')
+            core.complete_task(task_id, [{"package": file_name, "error": "文件为空或只包含注释"}])
             return False
             
-        utils.update_task_progress(task_id, 10, f'找到 {len(requirements)} 个包需要安装')
-        utils.print_status(f"找到 {len(requirements)} 个依赖需要安装", 'info')
+        core.update_task_progress(task_id, 10, f'找到 {len(requirements)} 个包需要安装')
+        core.print_status(f"找到 {len(requirements)} 个依赖需要安装", 'info')
         
         # 使用当前活动环境的Python
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 使用pip直接安装requirements.txt文件，使用流式处理
         cmd = [python_executable, '-m', 'pip', 'install', '-r', file_path]
-        success = utils.stream_process_output(cmd, task_id, "requirements.txt")
+        success = core.stream_process_output(cmd, task_id, "requirements.txt")
         
         if not success:
-            utils.print_status(f"安装requirements.txt失败", 'error')
+            core.print_status(f"安装requirements.txt失败", 'error')
             return False
         
-        utils.print_status("成功安装requirements.txt中的依赖", 'success')
+        core.print_status("成功安装requirements.txt中的依赖", 'success')
         return True
     except Exception as e:
-        utils.print_status(f"处理文件 {file_name} 时出错: {str(e)}", 'error')
+        core.print_status(f"处理文件 {file_name} 时出错: {str(e)}", 'error')
         return False
 
 # 清理PIP缓存
@@ -804,14 +825,14 @@ def clean_pip_cache(task_id):
         bool: 是否成功
     """
     try:
-        utils.update_task_progress(task_id, 10, '开始清理PIP缓存...')
-        utils.print_status("开始清理PIP缓存...", 'start')
+        core.update_task_progress(task_id, 10, '开始清理PIP缓存...')
+        core.print_status("开始清理PIP缓存...", 'start')
         
         # 使用当前活动环境的Python
-        python_executable = config.get_active_python_executable()
+        python_executable = core.get_active_python_executable()
         
         # 执行pip cache purge命令清理缓存
-        utils.update_task_progress(task_id, 50, '正在清理PIP缓存...')
+        core.update_task_progress(task_id, 50, '正在清理PIP缓存...')
         result = subprocess.run(
             [python_executable, '-m', 'pip', 'cache', 'purge'],
             capture_output=True,
@@ -819,18 +840,18 @@ def clean_pip_cache(task_id):
         )
         
         if result.returncode != 0:
-            utils.print_status(f"清理PIP缓存失败: {result.stderr}", 'error')
-            utils.update_task_progress(task_id, 100, '清理缓存失败')
-            utils.complete_task(task_id, [f"清理缓存失败: {result.stderr}"])
+            core.print_status(f"清理PIP缓存失败: {result.stderr}", 'error')
+            core.update_task_progress(task_id, 100, '清理缓存失败')
+            core.complete_task(task_id, [f"清理缓存失败: {result.stderr}"])
             return False
         
-        utils.print_status("PIP缓存清理完成", 'success')
-        utils.update_task_progress(task_id, 100, '缓存清理完成')
-        utils.complete_task(task_id, [])
+        core.print_status("PIP缓存清理完成", 'success')
+        core.update_task_progress(task_id, 100, '缓存清理完成')
+        core.complete_task(task_id, [])
         return True
     except Exception as e:
-        utils.print_status(f"清理缓存出错: {str(e)}", 'error')
-        utils.complete_task(task_id, [f"清理缓存出错: {str(e)}"])
+        core.print_status(f"清理缓存出错: {str(e)}", 'error')
+        core.complete_task(task_id, [f"清理缓存出错: {str(e)}"])
         return False
 
 # 全局变量用于检测循环依赖
@@ -1133,7 +1154,7 @@ def get_single_dependency_info(package_name, force_refresh=False):
         dict: 依赖信息字典，如果包不存在则返回None
     """
     # 获取当前激活的Python环境路径
-    python_executable = config.get_active_python_executable()
+    python_executable = core.get_active_python_executable()
     
     # 检查包是否已安装
     try:
@@ -1182,7 +1203,7 @@ except Exception as e:
             )
             
             if result.returncode != 0:
-                utils.print_status(f"获取依赖 {package_name} 信息失败: {result.stderr}", 'error')
+                core.print_status(f"获取依赖 {package_name} 信息失败: {result.stderr}", 'error')
                 return None
             
             # 解析脚本输出
@@ -1212,7 +1233,7 @@ except Exception as e:
                         dependency_descriptions[pkg_name] = description
                         save_descriptions()
                 except Exception as e:
-                    utils.print_status(f"获取 {pkg_name} 描述失败: {e}", 'warning')
+                    core.print_status(f"获取 {pkg_name} 描述失败: {e}", 'warning')
             
             # 获取最新版本信息，可选强制刷新
             latest_version = ""
@@ -1237,7 +1258,7 @@ except Exception as e:
                             except Exception:
                                 is_latest = (pkg_version == latest_version)
             except Exception as e:
-                utils.print_status(f"获取 {pkg_name} 的最新版本信息失败: {e}", 'warning')
+                core.print_status(f"获取 {pkg_name} 的最新版本信息失败: {e}", 'warning')
                 is_latest = False
             
             # 返回完整的依赖信息
@@ -1260,7 +1281,7 @@ except Exception as e:
             except:
                 pass
     except Exception as e:
-        utils.print_status(f"获取依赖 {package_name} 信息失败: {e}", 'error')
+        core.print_status(f"获取依赖 {package_name} 信息失败: {e}", 'error')
         return None
     
     return None

@@ -21,9 +21,8 @@ from flask_cors import CORS
 import logging
 
 # 导入自定义模块
-from . import config
+from . import core
 from . import dependency
-from . import utils
 
 # 创建Flask应用实例
 app = Flask(__name__, static_folder='..')
@@ -85,8 +84,23 @@ def get_dependencies():
         
         return jsonify(dependencies)
     except Exception as e:
-        utils.print_status(f"获取依赖列表时出错: {e}", 'error')
+        core.print_status(f"获取依赖列表时出错: {e}", 'error')
         return api_response(False, f"获取依赖列表失败: {str(e)}", status_code=500)
+
+# 获取依赖当前版本
+@app.route('/api/dependency-current-version/<dependency_name>')
+def get_dependency_current_version(dependency_name):
+    """获取特定依赖的当前版本信息"""
+    try:
+        # 获取依赖信息
+        dep_info = dependency.get_single_dependency(dependency_name)
+        if dep_info:
+            return api_response(True, "获取成功", {"version": dep_info['version']})
+        else:
+            return api_response(False, f"找不到依赖: {dependency_name}", status_code=404)
+    except Exception as e:
+        core.print_status(f"获取依赖版本信息时出错: {e}", 'error')
+        return api_response(False, f"获取依赖版本信息失败: {str(e)}", status_code=500)
 
 # 检查依赖描述更新
 @app.route('/api/check-description-updates')
@@ -106,7 +120,7 @@ def check_description_updates():
             kwargs={'only_missing': True},
             daemon=True
         ).start()
-        utils.print_status("UI加载完成，开始后台更新缺失的依赖描述", 'info')
+        core.print_status("UI加载完成，开始后台更新缺失的依赖描述", 'info')
     # 环境变更请求，只更新缺失的依赖描述
     elif environment_changed:
         # 环境已变更，触发更新所有依赖描述
@@ -115,7 +129,7 @@ def check_description_updates():
             kwargs={'only_missing': True},  # 改为只更新缺失的依赖描述
             daemon=True
         ).start()
-        utils.print_status("Python环境已切换，开始更新所有的依赖描述", 'info')
+        core.print_status("Python环境已切换，开始更新所有的依赖描述", 'info')
         # 强制标记有更新
         if hasattr(dependency, 'last_description_update'):
             dependency.last_description_update = current_time
@@ -139,7 +153,7 @@ def batch_uninstall():
         return api_response(False, '没有选择要卸载的依赖', status_code=400)
     
     # 创建任务
-    task_id = utils.create_task('卸载', packages)
+    task_id = core.create_task('卸载', packages)
     
     # 启动后台任务执行批量卸载
     threading.Thread(
@@ -197,7 +211,7 @@ def update_dependency_route():
         return api_response(False, '依赖名称不能为空', status_code=400)
     
     # 创建任务
-    task_id = utils.create_task('更新', [package_name])
+    task_id = core.create_task('更新', [package_name])
     
     # 启动后台任务执行更新
     threading.Thread(
@@ -219,7 +233,7 @@ def switch_version_route():
         return api_response(False, '依赖名称和版本不能为空', status_code=400)
     
     # 创建任务
-    task_id = utils.create_task('切换版本', [f"{package_name}=={version}"])
+    task_id = core.create_task('切换版本', [f"{package_name}=={version}"])
     
     # 启动后台任务执行版本切换
     threading.Thread(
@@ -240,7 +254,7 @@ def update_selected_route():
         return api_response(False, '没有选择要更新的依赖', status_code=400)
     
     # 创建任务
-    task_id = utils.create_task('更新', packages)
+    task_id = core.create_task('更新', packages)
     
     # 启动后台任务执行批量更新
     threading.Thread(
@@ -274,14 +288,14 @@ def install_whl_route():
         file.save(temp_file_path)
         
         # 创建任务ID用于跟踪进度
-        task_id = utils.create_task('安装WHL', [file.filename])
+        task_id = core.create_task('安装WHL', [file.filename])
         
         # 使用线程启动安装过程，实现异步操作
         def process_whl_install():
             try:
                 result = dependency.install_whl(temp_file_path, task_id)
                 if not result:
-                    utils.complete_task(task_id, [f"安装失败: {file.filename}"])
+                    core.complete_task(task_id, [f"安装失败: {file.filename}"])
             finally:
                 # 确保临时目录被清理
                 if os.path.exists(temp_dir):
@@ -295,7 +309,7 @@ def install_whl_route():
         # 确保清理临时文件
         if 'temp_dir' in locals():
             shutil.rmtree(temp_dir, ignore_errors=True)
-        utils.print_status(f"处理wheel安装请求时出错: {str(e)}", 'error')
+        core.print_status(f"处理wheel安装请求时出错: {str(e)}", 'error')
         return api_response(False, f'安装失败: {str(e)}', status_code=400)
 
 # 安装requirements.txt文件
@@ -321,14 +335,14 @@ def install_requirements_route():
         file.save(temp_file_path)
         
         # 创建任务ID
-        task_id = utils.create_task('安装', ['从requirements.txt安装'])
+        task_id = core.create_task('安装', ['从requirements.txt安装'])
         
         # 后台处理函数
         def process_requirements_install():
             try:
                 result = dependency.install_requirements(temp_file_path, task_id)
                 if not result:
-                    utils.complete_task(task_id, [f"安装失败: {file.filename}"])
+                    core.complete_task(task_id, [f"安装失败: {file.filename}"])
             finally:
                 # 确保临时目录被清理
                 if os.path.exists(temp_dir):
@@ -348,17 +362,17 @@ def install_requirements_route():
 @app.route('/api/task-progress/<task_id>')
 def get_task_progress(task_id):
     """获取任务进度"""
-    if task_id not in utils.task_progress:
+    if task_id not in core.task_progress:
         return api_response(False, '任务不存在', status_code=404)
     
-    return jsonify(utils.task_progress[task_id])
+    return jsonify(core.task_progress[task_id])
 
 # 清理PIP缓存
 @app.route('/api/clean-pip-cache', methods=['POST'])
 def clean_pip_cache_route():
     """清理pip缓存"""
     # 创建任务
-    task_id = utils.create_task('清理缓存', ['pip cache'])
+    task_id = core.create_task('清理缓存', ['pip cache'])
     
     # 启动后台任务执行缓存清理
     threading.Thread(
@@ -385,7 +399,7 @@ def check_all_versions():
             
             # 计算检查的总数量
             total = len(packages_to_check)
-            utils.print_status(f"需要检查 {total} 个依赖的版本信息", 'info')
+            core.print_status(f"需要检查 {total} 个依赖的版本信息", 'info')
             
             # 发送初始进度
             yield json.dumps({"progress": 0}) + "\n"
@@ -405,7 +419,7 @@ def check_all_versions():
                     break
             
         except Exception as e:
-            utils.print_status(f"检查版本过程出错: {e}", 'error')
+            core.print_status(f"检查版本过程出错: {e}", 'error')
             yield json.dumps({"error": str(e)}) + "\n"
     
     return Response(generate(), mimetype='text/event-stream')
@@ -433,53 +447,21 @@ def get_system_info():
             'pipVersion': pip_version
         })
     except Exception as e:
-        utils.print_status(f"获取系统信息失败: {e}", 'error')
+        core.print_status(f"获取系统信息失败: {e}", 'error')
         return jsonify({
             'pythonVersion': '未知',
             'pipVersion': '未知'
         }), 500
-
-# 用户设置API
-@app.route('/api/settings', methods=['GET'])
-def get_settings():
-    """获取用户设置"""
-    try:
-        settings = config.load_user_settings()
-        return jsonify(settings)
-    except Exception as e:
-        utils.print_status(f"获取用户设置失败: {e}", 'error')
-        return api_response(False, f"获取设置失败: {str(e)}", status_code=500)
-
-@app.route('/api/settings', methods=['POST'])
-def update_settings():
-    """更新用户设置"""
-    try:
-        data = request.json
-        
-        # 加载当前设置
-        current_settings = config.load_user_settings()
-        
-        # 更新设置
-        current_settings.update(data)
-        
-        # 保存设置
-        if config.save_user_settings(current_settings):
-            return api_response(True, "设置已更新")
-        else:
-            return api_response(False, "保存设置失败", status_code=500)
-    except Exception as e:
-        utils.print_status(f"更新设置时出错: {e}", 'error')
-        return api_response(False, f"更新设置时出错: {str(e)}", status_code=500)
 
 # 获取缓存信息
 @app.route('/api/cache-info')
 def get_cache_info():
     """获取缓存信息，包括最后更新时间"""
     try:
-        cache_info = config.get_cache_info()
+        cache_info = core.get_cache_info()
         return jsonify(cache_info)
     except Exception as e:
-        utils.print_status(f"获取缓存信息失败: {e}", 'error')
+        core.print_status(f"获取缓存信息失败: {e}", 'error')
         return api_response(False, f"获取缓存信息失败: {str(e)}", status_code=500)
 
 # 获取依赖分类
@@ -487,9 +469,9 @@ def get_cache_info():
 def get_dependency_categories():
     """获取依赖分类信息"""
     try:
-        return jsonify(config.dependency_config)
+        return jsonify(core.dependency_config)
     except Exception as e:
-        utils.print_status(f"获取依赖分类信息失败: {e}", 'error')
+        core.print_status(f"获取依赖分类信息失败: {e}", 'error')
         return api_response(False, f"获取依赖分类信息失败: {str(e)}", status_code=500)
 
 # 获取依赖关系图数据
@@ -525,7 +507,7 @@ import os.path
 def get_python_environments():
     """获取所有已配置的Python环境"""
     try:
-        environments = config.load_python_environments()
+        environments = core.load_python_environments()
         
         # 如果是首次运行且没有环境，尝试添加当前环境
         if not environments.get("environments") and environments.get("current") is None:
@@ -538,11 +520,11 @@ def get_python_environments():
             }
             environments["environments"] = [current_env]
             environments["current"] = "system"
-            config.save_python_environments(environments)
+            core.save_python_environments(environments)
         
         return jsonify(environments)
     except Exception as e:
-        utils.print_status(f"获取Python环境列表失败: {e}", 'error')
+        core.print_status(f"获取Python环境列表失败: {e}", 'error')
         return api_response(False, f"获取Python环境列表失败: {str(e)}", status_code=500)
 
 # 保存Python环境
@@ -553,7 +535,7 @@ def save_python_environment():
         data = request.json
         
         # 加载现有环境
-        environments = config.load_python_environments()
+        environments = core.load_python_environments()
         
         # 生成唯一ID
         import uuid
@@ -598,13 +580,13 @@ def save_python_environment():
             environments["environments"].append(new_env)
         
         # 保存更新
-        if not config.save_python_environments(environments):
+        if not core.save_python_environments(environments):
             return api_response(False, "保存环境配置失败", status_code=500)
         
         return api_response(True, "环境已保存", {"environment": new_env})
         
     except Exception as e:
-        utils.print_status(f"保存Python环境失败: {e}", 'error')
+        core.print_status(f"保存Python环境失败: {e}", 'error')
         return api_response(False, f"保存Python环境失败: {str(e)}", status_code=500)
 
 # 删除Python环境
@@ -613,7 +595,7 @@ def delete_python_environment(env_id):
     """删除Python环境"""
     try:
         # 加载现有环境
-        environments = config.load_python_environments()
+        environments = core.load_python_environments()
         
         # 检查是否是当前环境
         if environments.get("current") == env_id:
@@ -631,13 +613,13 @@ def delete_python_environment(env_id):
             return api_response(False, "环境不存在", status_code=404)
         
         # 保存更新
-        if not config.save_python_environments(environments):
+        if not core.save_python_environments(environments):
             return api_response(False, "保存环境配置失败", status_code=500)
         
         return api_response(True, "环境已删除")
         
     except Exception as e:
-        utils.print_status(f"删除Python环境失败: {e}", 'error')
+        core.print_status(f"删除Python环境失败: {e}", 'error')
         return api_response(False, f"删除Python环境失败: {str(e)}", status_code=500)
 
 # 修改切换环境API
@@ -652,7 +634,7 @@ def switch_environment():
             return api_response(False, "环境ID不能为空", status_code=400)
         
         # 加载环境配置
-        environments = config.load_python_environments()
+        environments = core.load_python_environments()
         
         # 查找目标环境
         target_env = None
@@ -676,7 +658,7 @@ def switch_environment():
             
         # 更新当前环境
         environments["current"] = env_id
-        if not config.save_python_environments(environments):
+        if not core.save_python_environments(environments):
             return api_response(False, "保存环境配置失败", status_code=500)
             
         # 返回成功信息，无需重启应用
@@ -687,7 +669,7 @@ def switch_environment():
         })
         
     except Exception as e:
-        utils.print_status(f"切换Python环境失败: {e}", 'error')
+        core.print_status(f"切换Python环境失败: {e}", 'error')
         return api_response(False, f"切换Python环境失败: {str(e)}", status_code=500)
 
 # 浏览Python环境
@@ -802,7 +784,7 @@ def browse_python_env():
         })
         
     except Exception as e:
-        utils.print_status(f"浏览Python环境失败: {e}", 'error')
+        core.print_status(f"浏览Python环境失败: {e}", 'error')
         return api_response(False, f"浏览Python环境失败: {str(e)}", status_code=500)
 
 # 获取单个依赖的详细信息
@@ -821,5 +803,5 @@ def get_single_dependency(package_name):
         else:
             return api_response(False, f"依赖 {package_name} 未安装或不存在", status_code=404)
     except Exception as e:
-        utils.print_status(f"获取依赖 {package_name} 信息失败: {e}", 'error')
+        core.print_status(f"获取依赖 {package_name} 信息失败: {e}", 'error')
         return api_response(False, f"获取依赖信息失败: {str(e)}", status_code=500)
